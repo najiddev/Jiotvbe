@@ -4,7 +4,7 @@ $id = @$_GET['id'];
 $user_ip = $_SERVER['REMOTE_ADDR'];
 $currentTimestamp = time();
 
-// CONFIGURATION
+// CONFIG
 $portal = "tv.fusion4k.cc";
 $mac = "00:1A:79:00:02:2B";
 $deviceid = "EB33A9633A8664B14E27807A8A53CFF299DD38E76996A8C1D7B5D0E2D32890CF";
@@ -25,6 +25,13 @@ curl_setopt($ch1, CURLOPT_HTTPHEADER, $headers1);
 $response1 = curl_exec($ch1);
 curl_close($ch1);
 $data1 = json_decode($response1, true);
+
+if (!isset($data1['js']['random']) || !isset($data1['js']['token'])) {
+    http_response_code(500);
+    echo json_encode(["error" => "Handshake failed. Check portal or MAC."]);
+    exit;
+}
+
 $token = $data1['js']['random'];
 $realToken = $data1['js']['token'];
 
@@ -45,12 +52,12 @@ curl_setopt($ch2, CURLOPT_HTTPHEADER, $headers2);
 $response2 = curl_exec($ch2);
 curl_close($ch2);
 
-// 3. Resolve Channel ID (if name used)
+// 3. Resolve Channel ID
 $channelId = null;
 if (is_numeric($id)) {
     $channelId = $id;
 } else {
-    // Get all channels and search by name
+    // Try to find channel name
     $channelListUrl = "http://$portal/stalker_portal/server/load.php?type=itv&action=get_all_channels&JsHttpRequest=1-xml";
     $ch3 = curl_init($channelListUrl);
     curl_setopt($ch3, CURLOPT_RETURNTRANSFER, true);
@@ -66,7 +73,7 @@ if (is_numeric($id)) {
     }
 }
 
-// 4. Generate Stream Link
+// 4. Generate Stream
 if ($channelId) {
     $createUrl = "http://$portal/stalker_portal/server/load.php?type=itv&action=create_link&cmd=ffmpeg%20http://localhost/ch/$channelId&JsHttpRequest=1-xml";
     $ch4 = curl_init($createUrl);
@@ -81,6 +88,8 @@ if ($channelId) {
     }
 }
 
+// Return error if stream not found
+http_response_code(404);
 header("Content-Type: application/json");
 echo json_encode(["error" => "Stream link not found or channel not matched"]);
 exit;
